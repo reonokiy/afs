@@ -1366,14 +1366,13 @@ dependencies = [
 name = "git-remote-afs"
 version = "0.1.0"
 dependencies = [
- "afs-db",
  "afs-store",
  "anyhow",
  "opendal",
  "serde",
  "serde_json",
  "sha2",
- "sqlx",
+ "tempfile",
  "tokio",
  "toml 1.1.2+spec-1.1.0",
  "tracing",

@@ -9,8 +9,8 @@ name = "git-remote-afs"
 path = "src/main.rs"
 
 [dependencies]
+# Only need backend config + operator creation from afs-store (no SQLite)
 afs-store.workspace = true
-afs-db.workspace = true
 
 tokio.workspace = true
 opendal.workspace = true
@@ -19,7 +19,6 @@ serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
-sqlx.workspace = true
 sha2.workspace = true
 toml.workspace = true
 

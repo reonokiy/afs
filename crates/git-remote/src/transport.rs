@@ -149,13 +149,24 @@ impl Remote {
         let refname = parts[1];
         info!(%oid, %refname, "fetching");
 
-        // Download all pack files from remote and index them locally
+        // Track which packs we already fetched (marker dir inside GIT_DIR)
+        let fetched_dir = self.git_dir.join("afs-fetched-packs");
+        std::fs::create_dir_all(&fetched_dir).ok();
+
         let entries = self.op.list("git/").await.unwrap_or_default();
         for entry in entries {
             let key = entry.name();
             if !key.ends_with(".pack") {
                 continue;
             }
+
+            // Skip if already fetched
+            let marker = fetched_dir.join(key);
+            if marker.exists() {
+                debug!(%key, "already fetched, skipping");
+                continue;
+            }
+
             let full_key = format!("git/{}", key);
             debug!(%full_key, "downloading pack");
             let pack_data = self.op.read(&full_key).await?.to_vec();
@@ -179,6 +190,9 @@ impl Remote {
             if !status.success() {
                 anyhow::bail!("git index-pack failed for {}", key);
             }
+
+            // Mark as fetched
+            std::fs::write(&marker, "").ok();
         }
 
         Ok(())
