@@ -1,0 +1,32 @@
+[package]
+name = "afs"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "afs"
+path = "src/main.rs"
+
+[dependencies]
+afs-db.workspace = true
+afs-fuse.workspace = true
+afs-hydrator.workspace = true
+afs-indexer.workspace = true
+afs-resolver.workspace = true
+afs-store.workspace = true
+
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+figment.workspace = true
+serde.workspace = true
+dirs.workspace = true
+notify.workspace = true
+anyhow.workspace = true
+sqlx.workspace = true
+toml.workspace = true
+fuser.workspace = true
+gix.workspace = true
+futures.workspace = true

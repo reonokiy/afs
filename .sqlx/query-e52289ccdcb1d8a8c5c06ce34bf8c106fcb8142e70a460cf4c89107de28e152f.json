@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT MAX(gen) as max_gen FROM base_nodes",
+  "describe": {
+    "columns": [
+      {
+        "name": "max_gen",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "e52289ccdcb1d8a8c5c06ce34bf8c106fcb8142e70a460cf4c89107de28e152f"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM pack_index",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "a9830eb84a3975d257dc52d2b3df07ade4440a8dbc7bf4e5606f50786fe1bd7e"
+}

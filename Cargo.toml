@@ -1,0 +1,65 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/afs",
+    "crates/db",
+    "crates/fuse",
+    "crates/hydrator",
+    "crates/indexer",
+    "crates/resolver",
+    "crates/store",
+    "crates/tests",
+]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/reonokiy/afs"
+
+[workspace.dependencies]
+# Internal crates
+afs-db = { path = "crates/db" }
+afs-fuse = { path = "crates/fuse" }
+afs-hydrator = { path = "crates/hydrator" }
+afs-indexer = { path = "crates/indexer" }
+afs-resolver = { path = "crates/resolver" }
+afs-store = { path = "crates/store" }
+
+# Core
+tokio = { version = "1.52", features = ["full"] }
+bytes = "1.11"
+dashmap = "6.1"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# Git
+gix = { version = "0.81", features = ["blocking-network-client", "worktree-mutation"] }
+
+# FUSE
+fuser = "0.17"
+
+# Storage
+opendal = { version = "0.55", features = ["services-s3", "services-fs", "services-gcs", "services-azblob"] }
+foyer = "0.22"
+
+# Database
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "migrate"] }
+
+# Compression
+zstd = "0.13"
+
+# Config & CLI
+clap = { version = "4.6", features = ["derive"] }
+figment = { version = "0.10", features = ["toml", "env"] }
+serde = { version = "1.0", features = ["derive"] }
+
+# Error handling
+toml = "1.1"
+sha2 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+dirs = "6"
+notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }
+anyhow = "1"
+thiserror = "2"
+tempfile = "3"
+futures = "0.3"

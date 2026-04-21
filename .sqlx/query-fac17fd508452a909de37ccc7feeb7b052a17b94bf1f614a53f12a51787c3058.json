@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO pack_index (oid, pack_id, offset, comp_size, raw_size)\n             VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "fac17fd508452a909de37ccc7feeb7b052a17b94bf1f614a53f12a51787c3058"
+}

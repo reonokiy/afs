@@ -1,0 +1,22 @@
+[package]
+name = "afs-store"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+afs-db.workspace = true
+sqlx.workspace = true
+
+opendal.workspace = true
+foyer.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+bytes.workspace = true
+zstd.workspace = true
+serde.workspace = true
+sha2.workspace = true
+reqwest.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+futures.workspace = true

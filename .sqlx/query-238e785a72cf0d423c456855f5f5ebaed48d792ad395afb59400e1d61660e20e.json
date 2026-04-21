@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO overlay_nodes (path, kind, backing, mode, size, mtime_ns, source_oid)\n         VALUES (?, ?, ?, ?, ?, ?, ?)\n         ON CONFLICT(path) DO UPDATE SET\n           kind = excluded.kind,\n           backing = excluded.backing,\n           mode = excluded.mode,\n           size = excluded.size,\n           mtime_ns = excluded.mtime_ns,\n           source_oid = excluded.source_oid",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "238e785a72cf0d423c456855f5f5ebaed48d792ad395afb59400e1d61660e20e"
+}

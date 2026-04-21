@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO base_nodes (gen, path, parent, kind, oid, mode, size)\n             VALUES (?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "2a44487f48b6eb670a80532f563f506b7dfc02e4b883ec164faadfab953a28af"
+}

@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path as \"path!\", parent as \"parent!\", kind, oid, mode, size\n         FROM base_nodes WHERE gen = ? AND parent = ? ORDER BY path",
+  "describe": {
+    "columns": [
+      {
+        "name": "path!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "parent!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "kind",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "oid",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "mode",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "size",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "96b6af5257faa8a24aa8b9c5635f0237e6d2a878702b1106847dc98b596777dc"
+}

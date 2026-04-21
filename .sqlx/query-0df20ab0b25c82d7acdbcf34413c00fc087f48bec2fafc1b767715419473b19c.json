@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM overlay_nodes WHERE path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "0df20ab0b25c82d7acdbcf34413c00fc087f48bec2fafc1b767715419473b19c"
+}

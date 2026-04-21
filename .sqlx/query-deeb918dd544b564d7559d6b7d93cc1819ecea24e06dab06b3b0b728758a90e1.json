@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM base_nodes WHERE gen < ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "deeb918dd544b564d7559d6b7d93cc1819ecea24e06dab06b3b0b728758a90e1"
+}

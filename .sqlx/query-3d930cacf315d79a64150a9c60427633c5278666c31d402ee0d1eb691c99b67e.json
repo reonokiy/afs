@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path as \"path!\", kind as \"kind!\", backing, mode, size, mtime_ns, source_oid\n         FROM overlay_nodes WHERE path = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "path!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "kind!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "backing",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "mode",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "size",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "mtime_ns",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "source_oid",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "3d930cacf315d79a64150a9c60427633c5278666c31d402ee0d1eb691c99b67e"
+}

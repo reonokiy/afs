@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE base_nodes SET size = ? WHERE gen = ? AND oid = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "fe71238f8d5c82dfb95a9124186160cb82e00bfd61d3e71bdf02310bc9b7ecc4"
+}
