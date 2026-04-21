@@ -1363,6 +1363,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "git-lfs-afs-transfer"
+version = "0.1.0"
+dependencies = [
+ "afs-store",
+ "anyhow",
+ "opendal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 1.1.2+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "git-remote-afs"
 version = "0.1.0"
 dependencies = [

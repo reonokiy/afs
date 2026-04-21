@@ -11,6 +11,7 @@ members = [
     "crates/tests",
     "crates/volume-plugin",
     "crates/git-remote",
+    "crates/lfs-transfer",
 ]
 
 [workspace.package]

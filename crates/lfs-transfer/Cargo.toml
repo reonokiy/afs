@@ -1,0 +1,21 @@
+[package]
+name = "git-lfs-afs-transfer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "git-lfs-afs-transfer"
+path = "src/main.rs"
+
+[dependencies]
+afs-store.workspace = true
+
+tokio.workspace = true
+opendal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+toml.workspace = true
