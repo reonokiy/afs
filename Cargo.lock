@@ -1363,6 +1363,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "git-remote-afs"
+version = "0.1.0"
+dependencies = [
+ "afs-db",
+ "afs-store",
+ "anyhow",
+ "opendal",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tokio",
+ "toml 1.1.2+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "gix"
 version = "0.81.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
