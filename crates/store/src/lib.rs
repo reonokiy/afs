@@ -125,7 +125,7 @@ impl BlobStore {
     /// Upload a pack file to the backend and update the local pack_index.
     pub async fn put_pack(&self, entries: &[pack::PackEntryData]) -> Result<String> {
         let (pack_bytes, index_entries) = pack::write_pack(entries)?;
-        let pack_id = sha256_hex(&pack_bytes);
+        let pack_id = content_hash_hex(&pack_bytes);
         let key = backend::pack_key(&pack_id);
 
         self.operator
@@ -242,7 +242,7 @@ impl BlobStore {
 /// Entry header size constant re-export for range read calculations.
 pub use pack::ENTRY_HEADER_SIZE;
 
-fn sha256_hex(data: &[u8]) -> String {
+fn content_hash_hex(data: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let hash = Sha256::digest(data);
     hash.iter().map(|b| format!("{:02x}", b)).collect()

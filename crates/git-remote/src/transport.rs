@@ -393,14 +393,14 @@ impl Remote {
             .output()
             .context("git index-pack for GC repack")?;
 
-        let pack_sha1 = String::from_utf8_lossy(&idx_output.stdout).trim().to_string();
+        let pack_hash = String::from_utf8_lossy(&idx_output.stdout).trim().to_string();
         let tmp_idx = tmp_pack.with_extension("idx");
         let idx_data = std::fs::read(&tmp_idx).unwrap_or_default();
         let _ = std::fs::remove_file(&tmp_pack);
         let _ = std::fs::remove_file(&tmp_idx);
 
-        let new_pack_key = format!("objects/pack/pack-{}.pack", pack_sha1);
-        let new_idx_key = format!("objects/pack/pack-{}.idx", pack_sha1);
+        let new_pack_key = format!("objects/pack/pack-{}.pack", pack_hash);
+        let new_idx_key = format!("objects/pack/pack-{}.idx", pack_hash);
 
         info!(
             objects = object_count,
@@ -548,17 +548,17 @@ async fn generate_pack_files(
     }
 
     // git pack-objects outputs the SHA-1 hash to stdout
-    let pack_sha1 = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let pack_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    let pack_path = tmp_dir.path().join(format!("pack-{}.pack", pack_sha1));
-    let idx_path = tmp_dir.path().join(format!("pack-{}.idx", pack_sha1));
+    let pack_path = tmp_dir.path().join(format!("pack-{}.pack", pack_hash));
+    let idx_path = tmp_dir.path().join(format!("pack-{}.idx", pack_hash));
 
     let pack_data = std::fs::read(&pack_path).context("read generated pack")?;
     let idx_data = std::fs::read(&idx_path).context("read generated idx")?;
 
-    info!(objects = object_count, pack_size = pack_data.len(), %pack_sha1, "packed objects");
+    info!(objects = object_count, pack_size = pack_data.len(), %pack_hash, "packed objects");
 
-    Ok(Some((pack_sha1, pack_data, idx_data)))
+    Ok(Some((pack_hash, pack_data, idx_data)))
 }
 
 /// Update the objects/info/packs file listing all pack files on the remote.
