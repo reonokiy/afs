@@ -46,6 +46,24 @@ fn git_run(dir: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
+fn count_packs(remote_store: &Path) -> usize {
+    let pack_dir = remote_store.join("objects/pack");
+    if !pack_dir.exists() {
+        return 0;
+    }
+    std::fs::read_dir(&pack_dir)
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .map(|x| x == "pack")
+                .unwrap_or(false)
+        })
+        .count()
+}
+
 fn _git_ok(dir: &Path, args: &[&str]) -> bool {
     git(dir).args(args).output().map(|o| o.status.success()).unwrap_or(false)
 }
@@ -375,36 +393,14 @@ fn gc_repacks_multiple_packs() {
     git_run(&env.repo1, &["commit", "-m", "v3"]);
     git_run(&env.repo1, &["push", "origin", "main"]);
 
-    // Count packs before GC
-    let pack_count_before = std::fs::read_dir(env.remote_store.join("git"))
-        .unwrap()
-        .filter(|e| {
-            e.as_ref()
-                .unwrap()
-                .path()
-                .extension()
-                .map(|x| x == "pack")
-                .unwrap_or(false)
-        })
-        .count();
+    let pack_count_before = count_packs(&env.remote_store);
     assert!(pack_count_before >= 3, "expected >=3 packs, got {}", pack_count_before);
 
     // Run GC
     let output = gc_run(&env.remote_store);
     assert!(output.contains("→ 1 pack"), "GC output: {}", output);
 
-    // Count packs after GC
-    let pack_count_after = std::fs::read_dir(env.remote_store.join("git"))
-        .unwrap()
-        .filter(|e| {
-            e.as_ref()
-                .unwrap()
-                .path()
-                .extension()
-                .map(|x| x == "pack")
-                .unwrap_or(false)
-        })
-        .count();
+    let pack_count_after = count_packs(&env.remote_store);
     assert_eq!(pack_count_after, 1, "should have exactly 1 pack after GC");
 
     // Verify data still accessible after GC
@@ -480,4 +476,42 @@ fn tags_push_and_fetch() {
 
     let tag_oid = git_run(&repo2, &["rev-parse", "v1.0.0"]);
     assert!(!tag_oid.is_empty(), "tag should resolve");
+}
+
+#[test]
+fn bare_repo_layout() {
+    let env = TestEnv::new();
+
+    env.write_file(&env.repo1, "hello.txt", "world\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "init"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    // Verify git bare repo compatible layout exists
+    let head = std::fs::read_to_string(env.remote_store.join("HEAD")).unwrap();
+    assert!(head.starts_with("ref: refs/heads/"), "HEAD should be a symref: {}", head);
+
+    let info_refs = std::fs::read_to_string(env.remote_store.join("info/refs")).unwrap();
+    assert!(info_refs.contains("refs/heads/main"), "info/refs should list main: {}", info_refs);
+
+    let info_packs = std::fs::read_to_string(env.remote_store.join("objects/info/packs")).unwrap();
+    assert!(info_packs.starts_with("P pack-"), "objects/info/packs should list packs: {}", info_packs);
+
+    // Verify pack + idx pairs exist
+    let pack_dir = env.remote_store.join("objects/pack");
+    let pack_files: Vec<_> = std::fs::read_dir(&pack_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_str().unwrap().to_string())
+        .collect();
+
+    let pack_count = pack_files.iter().filter(|f| f.ends_with(".pack")).count();
+    let idx_count = pack_files.iter().filter(|f| f.ends_with(".idx")).count();
+    assert_eq!(pack_count, 1, "should have 1 pack file");
+    assert_eq!(idx_count, 1, "should have 1 idx file");
+
+    // Verify pack and idx have matching names
+    let pack_name: &str = pack_files.iter().find(|f| f.ends_with(".pack")).unwrap();
+    let idx_name = pack_name.replace(".pack", ".idx");
+    assert!(pack_files.contains(&idx_name), "pack and idx should have matching names");
 }

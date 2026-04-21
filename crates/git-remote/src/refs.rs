@@ -68,6 +68,49 @@ pub async fn write_refs(op: &Operator, refs: &RefMap, expected_etag: Option<&str
 
     // Unconditional write (FS backend or no ETag available)
     op.write(REFS_KEY, data).await.context("write refs.json")?;
+
+    // Also write git-compatible files for dumb HTTP protocol
+    write_git_compat(op, refs).await?;
+
+    Ok(())
+}
+
+/// Write git dumb-HTTP-compatible ref files:
+///   HEAD         — "ref: refs/heads/main\n"
+///   info/refs    — "<oid>\t<refname>\n" for each ref
+async fn write_git_compat(op: &Operator, refs: &RefMap) -> Result<()> {
+    // info/refs — tab-separated oid + refname (exclude the HEAD pointer entry)
+    let mut info_refs = String::new();
+    for (refname, oid) in refs {
+        if refname == "HEAD" {
+            continue; // HEAD is a symref, handled separately
+        }
+        info_refs.push_str(oid);
+        info_refs.push('\t');
+        info_refs.push_str(refname);
+        info_refs.push('\n');
+    }
+    op.write("info/refs", info_refs.into_bytes())
+        .await
+        .context("write info/refs")?;
+
+    // HEAD — use the explicitly stored HEAD target, or fall back to first branch
+    let default_branch = refs
+        .get("HEAD")
+        .cloned()
+        .or_else(|| {
+            refs.keys()
+                .find(|k| k.starts_with("refs/heads/"))
+                .cloned()
+        });
+
+    if let Some(branch) = default_branch {
+        let head = format!("ref: {}\n", branch);
+        op.write("HEAD", head.into_bytes())
+            .await
+            .context("write HEAD")?;
+    }
+
     Ok(())
 }
 

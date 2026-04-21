@@ -5,7 +5,6 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 use opendal::Operator;
-use sha2::{Digest, Sha256};
 use tracing::{debug, info};
 
 use crate::refs;
@@ -82,17 +81,23 @@ impl Remote {
     /// List refs on the remote.
     pub async fn list_refs(&self) -> Result<Vec<(String, String)>> {
         let remote_refs = refs::read_refs(&self.op).await?;
-        let mut result: Vec<(String, String)> = remote_refs.into_iter().collect();
 
-        if let Some(main) = result
-            .iter()
-            .find(|(r, _)| r == "refs/heads/main" || r == "refs/heads/master")
-        {
-            let head_target = main.0.clone();
-            result.push((
-                "@".to_string() + " " + &head_target + " HEAD",
-                main.1.clone(),
-            ));
+        // Extract HEAD target (stored as "HEAD" → "refs/heads/xxx" in refs map)
+        let head_target = remote_refs.get("HEAD").cloned();
+
+        let mut result: Vec<(String, String)> = remote_refs
+            .into_iter()
+            .filter(|(k, _)| k != "HEAD") // Don't list HEAD as a regular ref
+            .collect();
+
+        // Advertise HEAD symref if we know the default branch
+        if let Some(target) = &head_target {
+            if let Some((_refname, oid)) = result.iter().find(|(r, _)| r == target) {
+                result.push((
+                    format!("@{} HEAD", target),
+                    oid.clone(),
+                ));
+            }
         }
 
         Ok(result)
@@ -120,22 +125,33 @@ impl Remote {
         let local_oid = resolve_ref(&self.git_dir, src)?;
         info!(%src, %dst, %local_oid, "pushing");
 
-        // Generate and upload pack
-        let pack_data = generate_pack(&self.git_dir, &local_oid, &self.op).await?;
+        // Generate pack + idx and upload to standard git layout
+        let pack_result = generate_pack_files(&self.git_dir, &local_oid, &self.op).await?;
 
-        if !pack_data.is_empty() {
-            let hash = sha256_hex(&pack_data);
-            let key = format!("git/pack-{}.pack", hash);
-            info!(key = %key, size = pack_data.len(), "uploading pack");
+        if let Some((pack_hash, pack_data, idx_data)) = pack_result {
+            let pack_key = format!("objects/pack/pack-{}.pack", pack_hash);
+            let idx_key = format!("objects/pack/pack-{}.idx", pack_hash);
+            info!(pack_key = %pack_key, size = pack_data.len(), "uploading pack + idx");
             self.op
-                .write(&key, pack_data)
+                .write(&pack_key, pack_data)
                 .await
                 .context("upload git pack")?;
+            self.op
+                .write(&idx_key, idx_data)
+                .await
+                .context("upload git idx")?;
+
+            // Update objects/info/packs listing
+            update_info_packs(&self.op).await?;
         }
 
         // Update ref with optimistic lock
         let dst = dst.to_string();
         refs::update_refs(&self.op, |r| {
+            // Set HEAD to point to the first branch pushed (if not already set)
+            if dst.starts_with("refs/heads/") && !r.contains_key("HEAD") {
+                r.insert("HEAD".to_string(), dst.clone());
+            }
             r.insert(dst.clone(), local_oid.clone());
         })
         .await?;
@@ -157,7 +173,7 @@ impl Remote {
         let fetched_dir = self.git_dir.join("afs-fetched-packs");
         std::fs::create_dir_all(&fetched_dir).ok();
 
-        let entries = self.op.list("git/").await.unwrap_or_default();
+        let entries = self.op.list("objects/pack/").await.unwrap_or_default();
         for entry in entries {
             let key = entry.name();
             if !key.ends_with(".pack") {
@@ -170,7 +186,7 @@ impl Remote {
                 continue;
             }
 
-            let full_key = format!("git/{}", key);
+            let full_key = format!("objects/pack/{}", key);
             debug!(%full_key, "downloading pack");
             let pack_data = self.op.read(&full_key).await?.to_vec();
 
@@ -254,11 +270,11 @@ impl Remote {
     pub async fn gc(&self) -> Result<GcStats> {
         info!("starting remote GC");
 
-        let entries = self.op.list("git/").await.unwrap_or_default();
+        let entries = self.op.list("objects/pack/").await.unwrap_or_default();
         let pack_keys: Vec<String> = entries
             .iter()
             .filter(|e| e.name().ends_with(".pack"))
-            .map(|e| format!("git/{}", e.name()))
+            .map(|e| format!("objects/pack/{}", e.name()))
             .collect();
 
         if pack_keys.len() <= 1 {
@@ -301,9 +317,13 @@ impl Remote {
             }
         }
 
-        // Use remote refs as starting points for rev-list
+        // Use remote refs as starting points for rev-list (skip HEAD pointer)
         let remote_refs = refs::read_refs(&self.op).await?;
-        let ref_oids: Vec<String> = remote_refs.values().cloned().collect();
+        let ref_oids: Vec<String> = remote_refs
+            .iter()
+            .filter(|(k, _)| k.as_str() != "HEAD")
+            .map(|(_, v)| v.clone())
+            .collect();
 
         if ref_oids.is_empty() {
             return Ok(GcStats {
@@ -363,8 +383,24 @@ impl Remote {
         }
 
         let new_pack = output.stdout;
-        let new_hash = sha256_hex(&new_pack);
-        let new_key = format!("git/pack-{}.pack", new_hash);
+
+        // Write pack to temp file and index it to get the correct SHA-1 hash + .idx
+        let tmp_pack = std::env::temp_dir().join("afs-gc-repack.pack");
+        std::fs::write(&tmp_pack, &new_pack)?;
+
+        let idx_output = Command::new("git")
+            .args(["index-pack", tmp_pack.to_str().unwrap()])
+            .output()
+            .context("git index-pack for GC repack")?;
+
+        let pack_sha1 = String::from_utf8_lossy(&idx_output.stdout).trim().to_string();
+        let tmp_idx = tmp_pack.with_extension("idx");
+        let idx_data = std::fs::read(&tmp_idx).unwrap_or_default();
+        let _ = std::fs::remove_file(&tmp_pack);
+        let _ = std::fs::remove_file(&tmp_idx);
+
+        let new_pack_key = format!("objects/pack/pack-{}.pack", pack_sha1);
+        let new_idx_key = format!("objects/pack/pack-{}.idx", pack_sha1);
 
         info!(
             objects = object_count,
@@ -375,17 +411,27 @@ impl Remote {
         );
 
         self.op
-            .write(&new_key, new_pack.clone())
+            .write(&new_pack_key, new_pack.clone())
             .await
             .context("upload repacked pack")?;
+        self.op
+            .write(&new_idx_key, idx_data)
+            .await
+            .context("upload repacked idx")?;
 
-        // Delete old packs
+        // Delete old packs + their idx files
         for key in &pack_keys {
-            if *key != new_key {
+            if *key != new_pack_key {
                 debug!(%key, "deleting old pack");
                 self.op.delete(key).await.ok();
+                // Also delete corresponding .idx
+                let idx_key = key.replace(".pack", ".idx");
+                self.op.delete(&idx_key).await.ok();
             }
         }
+
+        // Update objects/info/packs
+        update_info_packs(&self.op).await?;
 
         Ok(GcStats {
             packs_before: pack_keys.len(),
@@ -438,13 +484,21 @@ fn resolve_ref(git_dir: &PathBuf, refspec: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-async fn generate_pack(git_dir: &PathBuf, oid: &str, op: &Operator) -> Result<Vec<u8>> {
+/// Generate pack + idx files. Returns (sha1_hash, pack_bytes, idx_bytes) or None if nothing to pack.
+async fn generate_pack_files(
+    git_dir: &PathBuf,
+    oid: &str,
+    op: &Operator,
+) -> Result<Option<(String, Vec<u8>, Vec<u8>)>> {
     let remote_refs = refs::read_refs(op).await?;
-    let have_oids: Vec<String> = remote_refs.values().cloned().collect();
 
     let mut rev_list_args = vec!["--objects".to_string(), oid.to_string()];
-    for have in &have_oids {
-        rev_list_args.push(format!("^{}", have));
+    for (refname, oid_val) in &remote_refs {
+        // Skip HEAD pointer (it stores a refname, not an OID)
+        if refname == "HEAD" {
+            continue;
+        }
+        rev_list_args.push(format!("^{}", oid_val));
     }
 
     let rev_list = Command::new("git")
@@ -457,27 +511,35 @@ async fn generate_pack(git_dir: &PathBuf, oid: &str, op: &Operator) -> Result<Ve
 
     if !rev_list.status.success() || rev_list.stdout.is_empty() {
         debug!("no new objects to pack");
-        return Ok(Vec::new());
+        return Ok(None);
     }
 
-    let mut pack_objects = std::process::Command::new("git")
+    // Write pack to a temp file so git gives us the SHA-1 hash + .idx
+    let tmp_dir = tempfile::tempdir().context("create temp dir for pack")?;
+    let pack_base = tmp_dir.path().join("pack");
+
+    let mut pack_objects = Command::new("git")
         .arg("--git-dir")
         .arg(git_dir)
-        .args(["pack-objects", "--stdout"])
+        .args(["pack-objects", pack_base.to_str().unwrap()])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
         .context("git pack-objects")?;
 
+    let object_count;
     {
         use std::io::Write;
         let stdin = pack_objects.stdin.as_mut().unwrap();
+        let mut count = 0usize;
         for line in String::from_utf8_lossy(&rev_list.stdout).lines() {
             let obj_oid = line.split_whitespace().next().unwrap_or("");
             if !obj_oid.is_empty() {
                 writeln!(stdin, "{}", obj_oid)?;
+                count += 1;
             }
         }
+        object_count = count;
     }
 
     let output = pack_objects.wait_with_output().context("pack-objects")?;
@@ -485,11 +547,36 @@ async fn generate_pack(git_dir: &PathBuf, oid: &str, op: &Operator) -> Result<Ve
         anyhow::bail!("git pack-objects failed");
     }
 
-    let pack_data = output.stdout;
-    let object_count = rev_list.stdout.iter().filter(|&&b| b == b'\n').count();
-    info!(objects = object_count, pack_size = pack_data.len(), "packed objects");
+    // git pack-objects outputs the SHA-1 hash to stdout
+    let pack_sha1 = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    Ok(pack_data)
+    let pack_path = tmp_dir.path().join(format!("pack-{}.pack", pack_sha1));
+    let idx_path = tmp_dir.path().join(format!("pack-{}.idx", pack_sha1));
+
+    let pack_data = std::fs::read(&pack_path).context("read generated pack")?;
+    let idx_data = std::fs::read(&idx_path).context("read generated idx")?;
+
+    info!(objects = object_count, pack_size = pack_data.len(), %pack_sha1, "packed objects");
+
+    Ok(Some((pack_sha1, pack_data, idx_data)))
+}
+
+/// Update the objects/info/packs file listing all pack files on the remote.
+async fn update_info_packs(op: &Operator) -> Result<()> {
+    let entries = op.list("objects/pack/").await.unwrap_or_default();
+    let mut content = String::new();
+    for entry in &entries {
+        let name = entry.name();
+        if name.ends_with(".pack") {
+            content.push_str("P ");
+            content.push_str(name);
+            content.push('\n');
+        }
+    }
+    op.write("objects/info/packs", content.into_bytes())
+        .await
+        .context("write objects/info/packs")?;
+    Ok(())
 }
 
 fn with_prefix(
@@ -556,7 +643,3 @@ fn with_prefix(
     }
 }
 
-fn sha256_hex(data: &[u8]) -> String {
-    let hash = Sha256::digest(data);
-    hash.iter().map(|b| format!("{:02x}", b)).collect()
-}
