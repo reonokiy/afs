@@ -294,10 +294,10 @@ fn cmd_status(config: &config::Config, name: Option<&str>) -> Result<()> {
             continue;
         }
         let repo_name = repo_dir.file_name().unwrap().to_str().unwrap();
-        if let Some(filter) = name {
-            if repo_name != filter {
-                continue;
-            }
+        if let Some(filter) = name
+            && repo_name != filter
+        {
+            continue;
         }
 
         let config_path = repo_dir.join("repo.toml");

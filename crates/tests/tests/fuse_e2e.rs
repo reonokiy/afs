@@ -15,7 +15,6 @@ use afs_resolver::{OverlayManager, Resolver};
 fn require_fuse() {
     if !Path::new("/dev/fuse").exists() {
         eprintln!("SKIP: /dev/fuse not available");
-        return;
     }
 }
 

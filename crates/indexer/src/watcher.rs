@@ -41,15 +41,15 @@ impl Watcher {
         }
 
         // Check tracked ref file mtime
-        if let Some(ref ref_path) = self.ref_path {
-            if let Ok(meta) = std::fs::metadata(ref_path) {
-                let mtime = meta.modified().ok();
-                if self.last_ref_mtime.is_some() && mtime != self.last_ref_mtime {
-                    debug!(?ref_path, "ref file changed");
-                    changed = true;
-                }
-                self.last_ref_mtime = mtime;
+        if let Some(ref ref_path) = self.ref_path
+            && let Ok(meta) = std::fs::metadata(ref_path)
+        {
+            let mtime = meta.modified().ok();
+            if self.last_ref_mtime.is_some() && mtime != self.last_ref_mtime {
+                debug!(?ref_path, "ref file changed");
+                changed = true;
             }
+            self.last_ref_mtime = mtime;
         }
 
         Ok(changed)

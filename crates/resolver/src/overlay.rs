@@ -33,10 +33,10 @@ impl OverlayManager {
         base_data: &[u8],
     ) -> Result<OverlayNode> {
         // Check if already in overlay
-        if let Some(existing) = self.get(path).await? {
-            if !existing.is_deleted() {
-                return Ok(existing);
-            }
+        if let Some(existing) = self.get(path).await?
+            && !existing.is_deleted()
+        {
+            return Ok(existing);
         }
 
         let backing = self.backing_path(path);
@@ -121,10 +121,10 @@ impl OverlayManager {
     /// Mark a file as deleted (whiteout).
     pub async fn remove(&self, path: &str) -> Result<()> {
         // Remove backing file if exists
-        if let Some(existing) = self.get(path).await? {
-            if let Some(ref backing) = existing.backing {
-                let _ = std::fs::remove_file(backing);
-            }
+        if let Some(existing) = self.get(path).await?
+            && let Some(ref backing) = existing.backing
+        {
+            let _ = std::fs::remove_file(backing);
         }
 
         let node = OverlayNode {

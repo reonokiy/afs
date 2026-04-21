@@ -85,27 +85,27 @@ impl Resolver {
         let generation = self.generation();
 
         // Check overlay first
-        if let Some(ref overlay) = self.overlay {
-            if let Some(ovl) = overlay.get(path).await? {
-                if ovl.is_deleted() {
-                    return Ok(None); // Whiteout — file is deleted
-                }
-
-                let kind = match ovl.kind {
-                    OverlayKind::Mkdir => NodeKind::Dir,
-                    _ => NodeKind::Blob,
-                };
-
-                return Ok(Some(ResolvedNode {
-                    path: ovl.path,
-                    kind,
-                    oid: ovl.source_oid,
-                    mode: ovl.mode,
-                    size: Some(ovl.size),
-                    from_overlay: true,
-                    backing_path: ovl.backing,
-                }));
+        if let Some(ref overlay) = self.overlay
+            && let Some(ovl) = overlay.get(path).await?
+        {
+            if ovl.is_deleted() {
+                return Ok(None); // Whiteout — file is deleted
             }
+
+            let kind = match ovl.kind {
+                OverlayKind::Mkdir => NodeKind::Dir,
+                _ => NodeKind::Blob,
+            };
+
+            return Ok(Some(ResolvedNode {
+                path: ovl.path,
+                kind,
+                oid: ovl.source_oid,
+                mode: ovl.mode,
+                size: Some(ovl.size),
+                from_overlay: true,
+                backing_path: ovl.backing,
+            }));
         }
 
         // Fall back to base snapshot

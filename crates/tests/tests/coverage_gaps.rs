@@ -519,7 +519,7 @@ mod config {
         // We test this indirectly since Config::load may fail without the file
         // but the fallback in main.rs works
         unsafe {
-            let _ = std::env::remove_var("AFS_CONFIG");
+            std::env::remove_var("AFS_CONFIG");
         }
     }
 }

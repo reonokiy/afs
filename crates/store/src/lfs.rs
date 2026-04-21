@@ -167,7 +167,7 @@ pub async fn fetch_lfs_objects_batch(
                 }
                 match req.send().await {
                     Ok(resp) => match resp.bytes().await {
-                        Ok(data) => Some((oid, Bytes::from(data))),
+                        Ok(data) => Some((oid, data)),
                         Err(e) => {
                             warn!(%oid, error = %e, "LFS download body failed");
                             None

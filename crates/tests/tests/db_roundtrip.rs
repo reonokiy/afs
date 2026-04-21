@@ -6,8 +6,7 @@
 use afs_db::*;
 
 async fn fresh_db() -> sqlx::SqlitePool {
-    let pool = schema::open_db(":memory:").await.unwrap();
-    pool
+    schema::open_db(":memory:").await.unwrap()
 }
 
 fn make_node(generation: i64, path: &str, kind: NodeKind, oid: Option<&str>) -> BaseNode {

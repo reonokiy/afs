@@ -172,7 +172,7 @@ impl BlobStore {
         }
 
         // Batch pack_index lookup
-        let remaining_refs: Vec<&str> = remaining.iter().copied().collect();
+        let remaining_refs: Vec<&str> = remaining.to_vec();
         let pack_entries =
             afs_db::packs::get_pack_entries_batch(&self.pool, &remaining_refs).await?;
 

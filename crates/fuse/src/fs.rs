@@ -278,14 +278,12 @@ impl Filesystem for AfsFilesystem {
             }
 
             // Truncate the backing file
-            if let Some(overlay) = self.resolver.overlay() {
-                if let Ok(Some(ovl_node)) = self.runtime.block_on(overlay.get(&path)) {
-                    if let Some(ref backing) = ovl_node.backing {
-                        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(backing) {
-                            let _ = f.set_len(new_size);
-                        }
-                    }
-                }
+            if let Some(overlay) = self.resolver.overlay()
+                && let Ok(Some(ovl_node)) = self.runtime.block_on(overlay.get(&path))
+                && let Some(ref backing) = ovl_node.backing
+                && let Ok(f) = std::fs::OpenOptions::new().write(true).open(backing)
+            {
+                let _ = f.set_len(new_size);
             }
         }
 
@@ -328,14 +326,13 @@ impl Filesystem for AfsFilesystem {
         };
 
         // If from overlay, read from backing file
-        if node.from_overlay {
-            if let Some(ref backing) = node.backing_path {
-                if let Some(overlay) = self.resolver.overlay() {
-                    match overlay.read_file(backing, offset, size) {
-                        Ok(data) => return reply.data(&data),
-                        Err(_) => return reply.error(Errno::EIO),
-                    }
-                }
+        if node.from_overlay
+            && let Some(ref backing) = node.backing_path
+            && let Some(overlay) = self.resolver.overlay()
+        {
+            match overlay.read_file(backing, offset, size) {
+                Ok(data) => return reply.data(&data),
+                Err(_) => return reply.error(Errno::EIO),
             }
         }
 
@@ -636,10 +633,10 @@ impl Filesystem for AfsFilesystem {
         let new_path = Self::child_path(&newparent_path, new_name);
 
         // Ensure old file is in overlay first
-        if let Some(node) = self.resolve_path(&old_path) {
-            if let Err(e) = self.ensure_overlay(&old_path, &node) {
-                return reply.error(e);
-            }
+        if let Some(node) = self.resolve_path(&old_path)
+            && let Err(e) = self.ensure_overlay(&old_path, &node)
+        {
+            return reply.error(e);
         }
 
         let overlay = match self.resolver.overlay() {
@@ -705,18 +702,18 @@ impl Filesystem for AfsFilesystem {
         // Prefetch sibling blobs in the background
         if let Some(ref hydrator) = self.hydrator {
             for child in &children {
-                if let Some(ref oid) = child.oid {
-                    if child.kind == NodeKind::Blob || child.kind == NodeKind::Lfs {
-                        let priority = afs_hydrator::classify_priority(&child.path);
-                        let task = afs_hydrator::HydrationTask {
-                            oid: oid.clone(),
-                            path: child.path.clone(),
-                            priority,
-                            reason: "sibling prefetch",
-                            enqueued_at: std::time::Instant::now(),
-                        };
-                        self.runtime.block_on(hydrator.enqueue(task));
-                    }
+                if let Some(ref oid) = child.oid
+                    && (child.kind == NodeKind::Blob || child.kind == NodeKind::Lfs)
+                {
+                    let priority = afs_hydrator::classify_priority(&child.path);
+                    let task = afs_hydrator::HydrationTask {
+                        oid: oid.clone(),
+                        path: child.path.clone(),
+                        priority,
+                        reason: "sibling prefetch",
+                        enqueued_at: std::time::Instant::now(),
+                    };
+                    self.runtime.block_on(hydrator.enqueue(task));
                 }
             }
         }

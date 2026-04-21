@@ -91,13 +91,13 @@ impl Remote {
             .collect();
 
         // Advertise HEAD symref if we know the default branch
-        if let Some(target) = &head_target {
-            if let Some((_refname, oid)) = result.iter().find(|(r, _)| r == target) {
-                result.push((
-                    format!("@{} HEAD", target),
-                    oid.clone(),
-                ));
-            }
+        if let Some(target) = &head_target
+            && let Some((_refname, oid)) = result.iter().find(|(r, _)| r == target)
+        {
+            result.push((
+                format!("@{} HEAD", target),
+                oid.clone(),
+            ));
         }
 
         Ok(result)
