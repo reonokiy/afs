@@ -3,8 +3,6 @@
 //! Scenario-driven: "when a user modifies a tracked file, the overlay captures
 //! the change and the resolver returns the modified version."
 
-use std::path::PathBuf;
-
 use afs_db::*;
 use afs_resolver::{OverlayManager, Resolver};
 

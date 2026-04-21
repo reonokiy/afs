@@ -8,7 +8,6 @@ use std::time::Instant;
 use afs_hydrator::queue::*;
 use afs_hydrator::{Hydrator, HydrationTask};
 use bytes::Bytes;
-use tokio::sync::Mutex;
 
 /// A mock fetch function that serves blobs from a HashMap.
 fn mock_fetch(data: HashMap<String, Vec<u8>>) -> afs_hydrator::FetchFn {
@@ -16,21 +15,6 @@ fn mock_fetch(data: HashMap<String, Vec<u8>>) -> afs_hydrator::FetchFn {
     Arc::new(move |oid: String| {
         let data = data.clone();
         tokio::spawn(async move {
-            match data.get(&oid) {
-                Some(blob) => Ok(Bytes::from(blob.clone())),
-                None => Err(anyhow::anyhow!("blob {} not found", oid)),
-            }
-        })
-    })
-}
-
-/// A slow mock that adds a delay, for testing dedup.
-fn slow_mock_fetch(data: HashMap<String, Vec<u8>>) -> afs_hydrator::FetchFn {
-    let data = Arc::new(data);
-    Arc::new(move |oid: String| {
-        let data = data.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             match data.get(&oid) {
                 Some(blob) => Ok(Bytes::from(blob.clone())),
                 None => Err(anyhow::anyhow!("blob {} not found", oid)),

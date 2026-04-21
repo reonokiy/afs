@@ -5,7 +5,6 @@
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::Arc;
 
 use afs_store::backend::BackendConfig;
 use afs_store::cache::{BlobCache, CacheConfig};

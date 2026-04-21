@@ -55,6 +55,8 @@ async fn make_store(config: BackendConfig) -> Result<BlobStore> {
 
     let cache_config = CacheConfig {
         memory_capacity: 64 * 1024 * 1024,
+        disk_dir: None,
+        disk_capacity: 0,
     };
     BlobStore::new(&config, &cache_config, pool).await
 }

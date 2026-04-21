@@ -482,8 +482,6 @@ mod store_accessors {
 // ── indexer/tree.rs: blobless_clone skips existing ──────────────
 
 mod indexer_clone {
-    use std::path::Path;
-
     #[test]
     fn blobless_clone_skips_if_gitdir_exists() {
         let tmp = tempfile::TempDir::new().unwrap();

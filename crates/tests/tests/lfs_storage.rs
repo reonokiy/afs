@@ -5,7 +5,6 @@
 
 use afs_store::backend::BackendConfig;
 use afs_store::cache::{BlobCache, CacheConfig};
-use bytes::Bytes;
 
 async fn setup_lfs(tmpdir: &tempfile::TempDir) -> (opendal::Operator, BlobCache, reqwest::Client) {
     let store_dir = tmpdir.path().join("store");

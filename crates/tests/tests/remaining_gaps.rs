@@ -1,7 +1,7 @@
 //! Additional targeted tests for the last remaining coverage gaps.
 
 use afs_db::*;
-use afs_resolver::{OverlayManager, ResolvedNode, Resolver};
+use afs_resolver::{OverlayManager, Resolver};
 
 // ── overlay: rename, mkdir, list_by_prefix ──────────────────────
 
@@ -152,7 +152,6 @@ async fn delete_overlay_node_removes_entry() {
 async fn hydrator_worker_handles_panic_in_fetch() {
     use std::sync::Arc;
     use afs_hydrator::Hydrator;
-    use bytes::Bytes;
 
     let fetch_fn: afs_hydrator::FetchFn = Arc::new(|_oid: String| {
         tokio::spawn(async {
