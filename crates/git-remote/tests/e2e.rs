@@ -46,8 +46,21 @@ fn git_run(dir: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
-fn git_ok(dir: &Path, args: &[&str]) -> bool {
+fn _git_ok(dir: &Path, args: &[&str]) -> bool {
     git(dir).args(args).output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+fn gc_run(remote_store: &Path) -> String {
+    let bin = binary_path();
+    let output = Command::new(&bin)
+        .args(["gc", &format!("afs://{}", remote_store.display())])
+        .output()
+        .expect("gc failed to execute");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        panic!("gc failed:\n{}", stderr);
+    }
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 struct TestEnv {
@@ -340,4 +353,131 @@ fn force_push() {
     assert_eq!(env.read_file(&repo2, "a.txt"), "v3-rewritten\n");
     let log = git_run(&repo2, &["log", "--oneline"]);
     assert_eq!(log.lines().count(), 2, "should have 2 commits after rewrite: {}", log);
+}
+
+#[test]
+fn gc_repacks_multiple_packs() {
+    let env = TestEnv::new();
+
+    // Push three separate times to create 3 pack files
+    env.write_file(&env.repo1, "a.txt", "v1\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "v1"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    env.write_file(&env.repo1, "b.txt", "v2\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "v2"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    env.write_file(&env.repo1, "c.txt", "v3\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "v3"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    // Count packs before GC
+    let pack_count_before = std::fs::read_dir(env.remote_store.join("git"))
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .map(|x| x == "pack")
+                .unwrap_or(false)
+        })
+        .count();
+    assert!(pack_count_before >= 3, "expected >=3 packs, got {}", pack_count_before);
+
+    // Run GC
+    let output = gc_run(&env.remote_store);
+    assert!(output.contains("→ 1 pack"), "GC output: {}", output);
+
+    // Count packs after GC
+    let pack_count_after = std::fs::read_dir(env.remote_store.join("git"))
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .map(|x| x == "pack")
+                .unwrap_or(false)
+        })
+        .count();
+    assert_eq!(pack_count_after, 1, "should have exactly 1 pack after GC");
+
+    // Verify data still accessible after GC
+    let repo2 = env.clone_to("repo2");
+    assert_eq!(env.read_file(&repo2, "a.txt"), "v1\n");
+    assert_eq!(env.read_file(&repo2, "b.txt"), "v2\n");
+    assert_eq!(env.read_file(&repo2, "c.txt"), "v3\n");
+    let log = git_run(&repo2, &["log", "--oneline"]);
+    assert_eq!(log.lines().count(), 3);
+}
+
+#[test]
+fn gc_noop_with_single_pack() {
+    let env = TestEnv::new();
+
+    env.write_file(&env.repo1, "a.txt", "content\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "init"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    let output = gc_run(&env.remote_store);
+    assert!(output.contains("1 packs → 1 pack") || output.contains("nothing to repack"),
+        "GC should be a noop: {}", output);
+}
+
+#[test]
+fn shallow_clone() {
+    let env = TestEnv::new();
+
+    // Create 5 commits
+    for i in 1..=5 {
+        env.write_file(&env.repo1, "file.txt", &format!("v{}\n", i));
+        git_run(&env.repo1, &["add", "."]);
+        git_run(&env.repo1, &["commit", "-m", &format!("commit {}", i)]);
+    }
+    git_run(&env.repo1, &["push", "origin", "main"]);
+
+    // Shallow clone with depth=2
+    let repo2 = env._tmp.path().join("shallow");
+    git_run(env._tmp.path(), &["init", "-b", "main", "shallow"]);
+    git_run(&repo2, &["config", "user.email", "test@test.com"]);
+    git_run(&repo2, &["config", "user.name", "Test"]);
+    let remote_url = format!("afs://{}", env.remote_store.display());
+    git_run(&repo2, &["remote", "add", "origin", &remote_url]);
+    git_run(&repo2, &["fetch", "--depth", "2", "origin"]);
+    git_run(&repo2, &["checkout", "-b", "main", "origin/main"]);
+
+    assert_eq!(env.read_file(&repo2, "file.txt"), "v5\n");
+
+    // Should have a shallow file
+    let shallow_file = repo2.join(".git/shallow");
+    assert!(shallow_file.exists(), "shallow file should exist after --depth fetch");
+}
+
+#[test]
+fn tags_push_and_fetch() {
+    let env = TestEnv::new();
+
+    env.write_file(&env.repo1, "a.txt", "tagged\n");
+    git_run(&env.repo1, &["add", "."]);
+    git_run(&env.repo1, &["commit", "-m", "release"]);
+    git_run(&env.repo1, &["tag", "v1.0.0"]);
+    git_run(&env.repo1, &["push", "origin", "main"]);
+    git_run(&env.repo1, &["push", "origin", "v1.0.0"]);
+
+    // ls-remote should show the tag
+    let ls = git_run(&env.repo1, &["ls-remote", "--tags", "origin"]);
+    assert!(ls.contains("refs/tags/v1.0.0"), "tag should be listed: {}", ls);
+
+    // Fetch tag in new repo
+    let repo2 = env.clone_to("repo2");
+    git_run(&repo2, &["fetch", "origin", "tag", "v1.0.0"]);
+
+    let tag_oid = git_run(&repo2, &["rev-parse", "v1.0.0"]);
+    assert!(!tag_oid.is_empty(), "tag should resolve");
 }
