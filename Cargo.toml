@@ -10,7 +10,6 @@ members = [
     "crates/store",
     "crates/tests",
     "crates/volume-plugin",
-    "crates/git-remote",
     "crates/lfs-transfer",
 ]
 
